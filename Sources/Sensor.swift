@@ -45,6 +45,11 @@ final class MotionSensor {
         while !Thread.current.isCancelled {
             pollLid()
             CFRunLoopRunInMode(.defaultMode, 0.05, false)
+            // The sensor hub is shared: another program can switch reporting off. Switch it back on.
+            if !paused && Clock.now() - lastSample > 2 {
+                enableReporting()
+                lastSample = Clock.now()
+            }
         }
     }
 
@@ -89,10 +94,13 @@ final class MotionSensor {
     }
 
     /// Stop streaming (interval 0 tells the sensor hub nobody needs reports). Safe from any thread.
-    func pause() { writeInterval(0) }
+    func pause() { paused = true; writeInterval(0) }
 
     /// Resume streaming at the last rate set.
-    func resume() { writeInterval(intervalMicros) }
+    func resume() { paused = false; writeInterval(intervalMicros) }
+
+    private var paused = false
+    private var lastSample = Clock.now()   // sensor thread only
 
     private func writeInterval(_ micros: Int) {
         for s in motionDrivers() {
@@ -139,6 +147,7 @@ final class MotionSensor {
             let raw = UInt32(report[o]) | UInt32(report[o + 1]) << 8 | UInt32(report[o + 2]) << 16 | UInt32(report[o + 3]) << 24
             return Double(Int32(bitPattern: raw)) / 65536
         }
+        lastSample = Clock.now()
         onSample?(channel, Double(stamp) * Clock.scale, SIMD3(axis(6), axis(10), axis(14)))
     }
 

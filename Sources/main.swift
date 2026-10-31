@@ -23,6 +23,16 @@ Actions: desktop-left, desktop-right, play-pause, next-track, previous-track, mu
 
 // MARK: Shared sensor setup
 
+/// Only one tapzone may listen at a time: two would both act on every tap.
+func claimSingleInstance() {
+    try? FileManager.default.createDirectory(at: Store.dir, withIntermediateDirectories: true)
+    let fd = open(Store.dir.appendingPathComponent("lock").path, O_CREAT | O_RDWR, 0o644)
+    if fd < 0 || flock(fd, LOCK_EX | LOCK_NB) != 0 {
+        fail("tapzone is already running in another window. Stop that one first (Ctrl+C).")
+    }
+    // The lock is held until this process exits.
+}
+
 /// Starts the sensor and a detector wired to it; hits arrive on the main queue.
 func startListening(_ settings: Settings, onHit: @escaping (Hit) -> Void) -> (MotionSensor, TapDetector) {
     let sensor = MotionSensor(), detector = TapDetector()
@@ -75,6 +85,7 @@ func report(_ model: CornerModel) {
 // MARK: calibrate
 
 func calibrate(tapsPerCorner: Int) {
+    claimSingleInstance()
     let settings = Store.loadSettings()
     var taps: [Sample] = []
     var plan = (0..<tapsPerCorner).flatMap { _ in Corner.allCases.shuffled() }
@@ -159,6 +170,7 @@ func shouldPause(lid: Int?) -> Bool {
 }
 
 func run() {
+    claimSingleInstance()
     var settings = Store.loadSettings()
     let model = CornerModel(Store.loadTaps())
     if model.isEmpty { fail("not calibrated yet. Run: tapzone calibrate") }
