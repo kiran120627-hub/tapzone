@@ -103,7 +103,8 @@ final class TapDetector {
         var hit = Hit(time: t0, gyro: g, accel: a, peak: g.map(length).max() ?? 0, lid: lid)
         if useGates {
             let before = g[0..<Hit.triggerIndex - 4].map(length).max() ?? 0
-            if secondsSinceInput() < 0.3 + 0.17 {
+            // Hands keep moving the laptop for a moment after the last key or swipe.
+            if secondsSinceInput() < 1.0 + 0.17 {
                 hit.ignored = "typing or using the trackpad"
             } else if let a = lidBefore, let b = lid, abs(a - b) >= 2 {
                 hit.ignored = "lid moved"

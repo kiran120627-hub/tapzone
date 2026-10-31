@@ -90,13 +90,15 @@ func calibrate(tapsPerCorner: Int) {
     var taps: [Sample] = []
     var plan = (0..<tapsPerCorner).flatMap { _ in Corner.allCases.shuffled() }
     var bumps = false
+    var started = false
 
     print("""
     Calibration: tap each corner when asked, about 2 cm in from the edge of the screen.
-    Use a quick, light flick of a fingertip — never press hard. Wait half a second between taps.
+    Use a quick, light flick of a fingertip — never press hard. Wait about a second between taps.
     Keep your hands off the keyboard and trackpad while tapping. Type u and Enter to undo the last tap.
     If taps get recorded when you did not tap, stop with Ctrl+C and run: tapzone set sensitivity low
 
+    Press Enter here when you are ready to start.
     """)
     func prompt() {
         guard let next = plan.first else { return }
@@ -131,7 +133,7 @@ func calibrate(tapsPerCorner: Int) {
             taps.append(Sample(corner: nil, features: Features.of(hit), peak: hit.peak, lid: hit.lid))
             return
         }
-        guard let corner = plan.first else { return }
+        guard started, let corner = plan.first else { return }
         if let why = hit.ignored { print("  ignored (\(why)), tap again"); return }
         taps.append(Sample(corner: corner, features: Features.of(hit), peak: hit.peak, lid: hit.lid))
         plan.removeFirst()
@@ -141,8 +143,15 @@ func calibrate(tapsPerCorner: Int) {
 
     Thread.detachNewThread {
         while let line = readLine() {
-            guard line.trimmingCharacters(in: .whitespaces).lowercased() == "u" else { continue }
+            let undo = line.trimmingCharacters(in: .whitespaces).lowercased() == "u"
             DispatchQueue.main.async {
+                if !started {
+                    started = true
+                    print("")
+                    prompt()
+                    return
+                }
+                guard undo else { return }
                 guard !bumps, let last = taps.popLast(), let c = last.corner else { return }
                 plan.insert(c, at: 0)
                 print("  undone\n")
@@ -150,10 +159,7 @@ func calibrate(tapsPerCorner: Int) {
             }
         }
     }
-    DispatchQueue.main.async {
-        detector.useGates = true
-        prompt()
-    }
+    detector.useGates = true
     // The bump phase records everything, including typing.
     Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { _ in if bumps { detector.useGates = false } }
     RunLoop.main.run()
