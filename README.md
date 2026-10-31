@@ -37,7 +37,7 @@ account, nothing leaves the machine.
 Needs Apple's Command Line Tools (`xcode-select --install`).
 
 ```bash
-git clone <this repository's URL>
+git clone https://github.com/kiran120627-hub/tapzone.git
 cd tapzone
 ./build.sh
 sudo mkdir -p /usr/local/bin && sudo cp build/tapzone /usr/local/bin/
